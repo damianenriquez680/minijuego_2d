@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Movimiento básico</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #333333;
+    --player: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #ffffff; /* el escenario de juego siempre debe ser blanco, como pediste */
+      --text: #333333;
+    }
+  }
+  html, body {
+    margin: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f4f4f4;
+    font-family: system-ui, sans-serif;
+    color: var(--text);
+  }
+
+  h1 {
+    font-size: 1.1rem;
+    margin: 0 0 10px 0;
+  }
+
+#gameCanvas {
+  background: var(--bg);
+  border: 2px solid #333;
+  display: block;
+  width: 600px;
+  height: 400px;
+  max-width: 95vw;
+  image-rendering: pixelated;
+}
+
+  p {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+  <h1>Mueve el personaje con las flechas o WASD</h1>
+  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <p>Flechas / WASD = mover · el cuadrado no se sale del área blanca</p>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Estado del personaje
+  const player = {
+    x: canvas.width / 2 - 15,
+    y: canvas.height / 2 - 15,
+    size: 30,
+    speed: 6,
+    color: '#2563eb'
+  };
+
+  // Obstáculo fijo
+  const obstacle = {
+    x: 300,
+    y: 250,
+    width: 80,
+    height: 80,
+    color: '#dc2626'
+  };
+
+  // Detecta si dos rectángulos se están tocando (AABB collision)
+  function isColliding(a, b, bWidth, bHeight) {
+    return (
+      a.x < b.x + bWidth &&
+      a.x + a.size > b.x &&
+      a.y < b.y + bHeight &&
+      a.y + a.size > b.y
+    );
+  }
+
+  // Teclas presionadas actualmente
+  const keys = {};
+
+  window.addEventListener('keydown', (e) => {
+    keys[e.key.toLowerCase()] = true;
+  });
+  window.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  function update() {
+    let dx = 0;
+    let dy = 0;
+
+    if (keys['arrowup'] || keys['w']) dy -= 1;
+    if (keys['arrowdown'] || keys['s']) dy += 1;
+    if (keys['arrowleft'] || keys['a']) dx -= 1;
+    if (keys['arrowright'] || keys['d']) dx += 1;
+
+    // Normalizar diagonal para que no vaya más rápido en diagonal
+    if (dx !== 0 && dy !== 0) {
+      const norm = Math.sqrt(2) / 2;
+      dx *= norm;
+      dy *= norm;
+    }
+
+    // Guardamos la posición antes de moverla, por si hay que ajustar
+    const prevX = player.x;
+    const prevY = player.y;
+
+    // Movemos y resolvemos colisión en X por separado
+    player.x += dx * player.speed;
+    player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+    if (isColliding(player, obstacle, obstacle.width, obstacle.height)) {
+      if (dx > 0) {
+        // Venía moviéndose a la derecha: lo pegamos justo al borde izquierdo del obstáculo
+        player.x = obstacle.x - player.size;
+      } else if (dx < 0) {
+        // Venía moviéndose a la izquierda: lo pegamos justo al borde derecho del obstáculo
+        player.x = obstacle.x + obstacle.width;
+      } else {
+        player.x = prevX;
+      }
+    }
+
+    // Movemos y resolvemos colisión en Y por separado
+    player.y += dy * player.speed;
+    player.y = Math.max(0, Math.min(canvas.height - player.size, player.y));
+    if (isColliding(player, obstacle, obstacle.width, obstacle.height)) {
+      if (dy > 0) {
+        // Venía moviéndose hacia abajo: lo pegamos justo al borde superior del obstáculo
+        player.y = obstacle.y - player.size;
+      } else if (dy < 0) {
+        // Venía moviéndose hacia arriba: lo pegamos justo al borde inferior del obstáculo
+        player.y = obstacle.y + obstacle.height;
+      } else {
+        player.y = prevY;
+      }
+    }
+  }
+
+  function draw() {
+    // Fondo blanco
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Obstáculo
+    ctx.fillStyle = obstacle.color;
+    ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+
+    // Personaje (redondeado para evitar bordes con sub-píxeles)
+    ctx.fillStyle = player.color;
+    ctx.fillRect(Math.round(player.x), Math.round(player.y), player.size, player.size);
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+</script>
+</body>
+</html>
